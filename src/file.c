@@ -7,6 +7,7 @@
 
 #include "common.h"
 #include "file.h"
+#include "parse.h"
 
 int create_db_file(char *filename) {
   int fd = open(filename, O_RDONLY);
@@ -15,18 +16,26 @@ int create_db_file(char *filename) {
     close(fd);
     return STATUS_ERROR;
   }
-  fd = open(filename, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+  fd = open(filename, O_RDWR | O_CREAT, 0644);
   if (fd == -1) {
     perror("Error creating file");
     return STATUS_ERROR;
   }
+  printf("Database file created successfully.\n");
   return STATUS_SUCCESS;
 }
 
 int open_db_file(char *filename) {
-  int fd = open(filename, O_RDONLY | S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+  int fd = open(filename, O_RDWR | O_CREAT, 0644);
   if (fd == -1) {
     printf("File not found.\n");
+    return STATUS_ERROR;
+  }
+  printf("Database file opened successfully.\n");
+  
+  if(validate_db_header(fd, NULL) == STATUS_ERROR) {
+    close(fd);
+    printf("Invalid database file.\n");
     return STATUS_ERROR;
   }
   return STATUS_SUCCESS;
