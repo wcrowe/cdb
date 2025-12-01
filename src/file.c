@@ -12,31 +12,31 @@
 int create_db_file(char *filename) {
   int fd = open(filename, O_RDONLY);
   if (fd != -1) {
-    printf("File already exists.\n");
     close(fd);
+    printf("File already exists.\n");
     return STATUS_ERROR;
   }
-  fd = open(filename, O_RDWR | O_CREAT, 0644);
+  fd = open(filename, O_RDWR | O_CREAT, PERM_644);
   if (fd == -1) {
     perror("Error creating file");
     return STATUS_ERROR;
   }
   printf("Database file created successfully.\n");
-  return STATUS_SUCCESS;
+  return fd;
 }
 
 int open_db_file(char *filename) {
-  int fd = open(filename, O_RDWR | O_CREAT, 0644);
+  int fd = open(filename, O_RDWR, PERM_644);
   if (fd == -1) {
     printf("File not found.\n");
     return STATUS_ERROR;
   }
   printf("Database file opened successfully.\n");
-  
-  if(validate_db_header(fd, NULL) == STATUS_ERROR) {
+
+  if (validate_db_header(fd, NULL) == STATUS_ERROR) {
     close(fd);
     printf("Invalid database file.\n");
     return STATUS_ERROR;
   }
-  return STATUS_SUCCESS;
+  return fd;
 }

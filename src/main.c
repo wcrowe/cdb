@@ -11,33 +11,38 @@
 void print_usage(char *argv[]) {
   printf("Usage: %s [-a filename] [-f filename] [-n]\n", argv[0]);
   printf("\t -n : create a new db file\n");
-  printf("\t -a : specify an additional db filename\n");
   printf("\t -f : specify the db filename\n");
 }
 
 int main(int argc, char *argv[]) {
   bool newFile = false;
+  bool list = false;
   int c = 0;
   char *filename = NULL;
   int dbfd = -1;
   struct dbheader_t *dbheader = NULL;
   struct employee_t *employees = NULL;
 
-  while ((c = getopt(argc, argv, "anf:")) != -1) {
+  while ((c = getopt(argc, argv, "nf:a:l")) != -1) {
     switch (c) {
-    case 'a':
-      /* filename provided in optarg */
-    //  (void)optarg;
-      filename = optarg;
+    case 'n':
+      /* -n flag handling */
+      newFile = true;
       break;
     case 'f':
       /* filename provided in optarg */
       filename = optarg;
       //	(void)optarg;
       break;
-    case 'n':
+    case 'p':
       /* -n flag handling */
       newFile = true;
+      break;
+    case 'l':
+      list = true;
+      break;
+    case '?':
+      printf("Unknown option -%c\n", c);
       break;
     default:
       print_usage(argv);
@@ -45,7 +50,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  if (!newFile && filename == NULL) {
+  if (filename == NULL) {
     print_usage(argv);
     exit(EXIT_SUCCESS);
   }
