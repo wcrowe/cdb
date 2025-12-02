@@ -16,6 +16,25 @@ int add_employee(struct dbheader_t *dbhdr, struct employee_t *employees, char *a
 }
 
 int read_employees(int fd, struct dbheader_t *dbhdr, struct employee_t **employeesOut) {
+  if (fd < 0) {
+    printf("Bad fd to read_employees.\n");
+    return STATUS_ERROR;
+  }
+  size_t emp_size = sizeof(struct employee_t);
+  size_t total_size = emp_size * dbhdr->count;
+  struct employee_t *employees = calloc(dbhdr->count, emp_size);
+  if (employees == NULL) {
+    printf("Failed to allocate memory for employees.\n");
+    return STATUS_ERROR;
+  } 
+  ssize_t read_bytes = read(fd, employees, total_size);
+  if (read_bytes != total_size) {
+    printf("Failed to read employees from file.\n");
+    free(employees);
+    return STATUS_ERROR;
+  }
+  *employeesOut = employees;
+  
   return STATUS_SUCCESS;
 }
 
