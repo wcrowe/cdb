@@ -19,6 +19,7 @@ int main(int argc, char *argv[]) {
   bool list = false;
   int c = 0;
   char *filename = NULL;
+  char *addstring = NULL;
   int dbfd = -1;
   struct dbheader_t *dbheader = NULL;
   struct employee_t *employees = NULL;
@@ -34,6 +35,11 @@ int main(int argc, char *argv[]) {
       filename = optarg;
       //	(void)optarg;
       break;
+    case 'a':
+      /* -n flag handling */
+      addstring = optarg;
+      break;
+
     case 'p':
       /* -n flag handling */
       newFile = true;
@@ -79,7 +85,29 @@ int main(int argc, char *argv[]) {
     }
     printf("Opening existing file...%d\n", filename != NULL);
   }
-  if (output_file(dbfd, dbheader) == STATUS_ERROR) {
+  if (read_employees(dbfd, dbheader, &employees) == STATUS_ERROR) {
+    printf("Failed to read employees from db file.\n");
+    close(dbfd);
+    exit(EXIT_FAILURE);
+  }
+  if (addstring != NULL) {
+    dbheader->count += 1;
+    dbheader->filesize += sizeof(struct employee_t);
+    struct employee_t *temp = realloc(employees, dbheader->count * sizeof(struct employee_t));
+    if (temp == NULL) {
+      printf("Failed to realloc employee array.\n");
+      close(dbfd);
+      exit(EXIT_FAILURE);
+    }
+    employees = temp;
+
+    if (add_employee(dbheader, employees, addstring) == STATUS_ERROR) {
+      printf("Failed to add employee.\n");
+      close(dbfd);
+      exit(EXIT_FAILURE);
+    }
+  }
+  if (output_file(dbfd, dbheader, employees) == STATUS_ERROR) {
     printf("Failed to output file.\n");
     close(dbfd);
     exit(EXIT_FAILURE);
