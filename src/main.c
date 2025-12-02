@@ -73,6 +73,7 @@ int main(int argc, char *argv[]) {
     }
 
   } else {
+    printf ("Opening existing file...\n");
     dbfd = open_db_file(filename);
     if (dbfd == STATUS_ERROR) {
       printf("Failed to open db file.\n");
