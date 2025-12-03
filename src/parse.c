@@ -11,24 +11,34 @@
 #include "parse.h"
 
 int add_employee(struct dbheader_t *dbhdr, struct employee_t *employees, char *addstring) {
-	printf("%s\n", addstring);
+    // Work on a copy — NEVER modify optarg/argv
+    char buffer[1024];
+    if (strlen(addstring) >= sizeof(buffer)) {
+        printf("Input string too long\n");
+        return STATUS_ERROR;
+    }
+    strcpy(buffer, addstring);
 
-	char *name = strtok(addstring, ",");
+    char *name = strtok(buffer, ",");
+    char *addr = strtok(NULL, ",");
+    char *hours_str = strtok(NULL, ",");
 
-	char *addr = strtok(NULL, ",");
+    if (name == NULL || addr == NULL || hours_str == NULL) {
+        printf("Invalid format: expected name,address,hours\n");
+        return STATUS_ERROR;
+    }
 
-	char *hours = strtok(NULL, ",");
+    int idx = dbhdr->count - 1;
 
-	printf("%s %s %s\n", name, addr, hours);
+    strncpy(employees[idx].name, name, sizeof(employees[idx].name) - 1);
+    employees[idx].name[sizeof(employees[idx].name) - 1] = '\0';
 
-	
-	strncpy(employees[dbhdr->count-1].name, name, sizeof(employees[dbhdr->count-1].name));
-	strncpy(employees[dbhdr->count-1].address, addr, sizeof(employees[dbhdr->count-1].address));
+    strncpy(employees[idx].address, addr, sizeof(employees[idx].address) - 1);
+    employees[idx].address[sizeof(employees[idx].address) - 1] = '\0';
 
-	employees[dbhdr->count-1].hours = atoi(hours);
-	
+    employees[idx].hours = atoi(hours_str);
 
-	return STATUS_SUCCESS;
+    return STATUS_SUCCESS;
 }
 
 int read_employees(int fd, struct dbheader_t *dbhdr, struct employee_t **employeesOut) {
@@ -134,22 +144,44 @@ printf("Validated DB header\n");
 	}
 
 	*headerOut = header;
-}
-
-int create_db_header(int fd, struct dbheader_t **headerOut) {
-	struct dbheader_t *header = calloc(1, sizeof(struct dbheader_t));
-	if (header == NULL) {
-		printf("Malloc failed to create db header\n");
-		return STATUS_ERROR;
-	}
-
-	header->version = 0x1;
-	header->count = 0;
-	header->magic = HEADER_MAGIC;
-	header->filesize = sizeof(struct dbheader_t);
-
-	*headerOut = header;
-
 	return STATUS_SUCCESS;
 }
 
+int create_db_header(struct dbheader_t **headerOut)
+{
+    struct dbheader_t *header = calloc(1, sizeof(struct dbheader_t));
+    if (header == NULL) {
+        printf("Malloc failed to create db header\n");
+        return STATUS_ERROR;
+    }
+
+    header->version  = 1;
+    header->count    = 0;
+    header->magic    = HEADER_MAGIC;
+    header->filesize = sizeof(struct dbheader_t);
+
+    *headerOut = header;
+    return STATUS_SUCCESS;
+}
+void list_employees(struct dbheader_t *dbhdr, struct employee_t *employees)
+{
+    if (dbhdr == NULL || employees == NULL) {
+        printf("No database loaded.\n");
+        return;
+    }
+
+    printf("\n=== Employee Database (%d record%s) ===\n\n", 
+           dbhdr->count, dbhdr->count == 1 ? "" : "s");
+
+    if (dbhdr->count == 0) {
+        printf("  (empty)\n\n");
+        return;
+    }
+
+    for (int i = 0; i < dbhdr->count; i++) {
+        printf("Employee #%d\n", i + 1);
+        printf("  Name   : %s\n", employees[i].name);
+        printf("  Address: %s\n", employees[i].address);
+        printf("  Hours  : %u\n\n", employees[i].hours);
+    }
+}

@@ -25,18 +25,23 @@ int create_db_file(char *filename) {
   return fd;
 }
 
-int open_db_file(char *filename) {
-  int fd = open(filename, O_RDWR, PERM_644);
-  if (fd == -1) {
-    printf("File not found.\n");
-    return STATUS_ERROR;
-  }
-  printf("Database file opened successfully.\n");
+int open_db_file(char *filename, struct dbheader_t **headerOut) {
+    int fd = open(filename, O_RDWR, 0644);
+    if (fd == -1) {
+        printf("File not found.\n");
+        return STATUS_ERROR;
+    }
 
-  if (validate_db_header(fd, NULL) == STATUS_ERROR) {
-    close(fd);
-    printf("Invalid database file.\n");
-    return STATUS_ERROR;
-  }
-  return fd;
+    printf("Database file opened successfully.\n");
+
+    if (validate_db_header(fd, headerOut) == STATUS_ERROR) {
+        close(fd);
+        printf("Invalid database file.\n");
+        return STATUS_ERROR;
+    }
+
+    // Leave file pointer right after header for read_employees()
+    lseek(fd, sizeof(struct dbheader_t), SEEK_SET);
+
+    return fd;
 }
