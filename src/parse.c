@@ -106,6 +106,11 @@ int output_file(int fd, struct dbheader_t *dbhdr, struct employee_t *employees)
 
 int add_employee(struct dbheader_t *dbhdr, struct employee_t **employees, char *addstring)
 {
+    // --- THIS LINE FIXES THE SEGFAULT ---
+    if (!dbhdr || !employees || !addstring) {
+        return STATUS_ERROR;
+    }
+
     char buf[1024];
     strncpy(buf, addstring, sizeof(buf)-1);
     buf[sizeof(buf)-1] = '\0';
@@ -113,10 +118,14 @@ int add_employee(struct dbheader_t *dbhdr, struct employee_t **employees, char *
     char *name  = strtok(buf, ",");
     char *addr  = strtok(NULL, ",");
     char *hours = strtok(NULL, ",");
-    if (!name || !addr || !hours) return STATUS_ERROR;
+    if (!name || !addr || !hours) {
+        return STATUS_ERROR;
+    }
 
     struct employee_t *new_mem = realloc(*employees, (dbhdr->count + 1) * sizeof(struct employee_t));
-    if (!new_mem) return STATUS_ERROR;
+    if (!new_mem) {
+        return STATUS_ERROR;
+    }
     *employees = new_mem;
 
     struct employee_t *e = &(*employees)[dbhdr->count];
