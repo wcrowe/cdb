@@ -17,7 +17,7 @@ int create_db_header(struct dbheader_t **headerOut)
     h->magic    = HEADER_MAGIC;
     h->version  = 1;
     h->count    = 0;
-    h->filesize = 16;                    // ← HARDCODED 16 (not sizeof!)
+    h->filesize = 16;                    // Hardcoded: 4+2+2+4 = 16 bytes
 
     *headerOut = h;
     return STATUS_SUCCESS;
@@ -25,11 +25,14 @@ int create_db_header(struct dbheader_t **headerOut)
 
 int validate_db_header(int fd, struct dbheader_t **headerOut)
 {
+    if (!headerOut) return STATUS_ERROR;
+    *headerOut = NULL;                   // ← Critical: prevent dangling pointer
+
     struct dbheader_t *h = calloc(1, sizeof(*h));
     if (!h) return STATUS_ERROR;
 
     lseek(fd, 0, SEEK_SET);
-    if (read(fd, h, sizeof(*h)) != sizeof(*h)) {
+    if (read(fd, h, 16) != 16) {         // Read exactly 16 bytes
         free(h);
         return STATUS_ERROR;
     }
@@ -50,7 +53,7 @@ int validate_db_header(int fd, struct dbheader_t **headerOut)
         return STATUS_ERROR;
     }
 
-    *headerOut = h;
+    *headerOut = h;                      // Only set on success
     return STATUS_SUCCESS;
 }
 
@@ -61,7 +64,7 @@ int read_employees(int fd, struct dbheader_t *dbhdr, struct employee_t **employe
     *employeesOut = NULL;
     if (dbhdr->count == 0) return STATUS_SUCCESS;
 
-    lseek(fd, 16, SEEK_SET);  // ← Hardcoded 16, not sizeof()
+    lseek(fd, 16, SEEK_SET);             // Skip 16-byte header
 
     struct employee_t *emps = calloc(dbhdr->count, sizeof(*emps));
     if (!emps) return STATUS_ERROR;
@@ -83,7 +86,6 @@ int output_file(int fd, struct dbheader_t *dbhdr, struct employee_t *employees)
 {
     if (!dbhdr) return STATUS_ERROR;
 
-    // ← HARDCODED 16 — this is the fix
     dbhdr->filesize = 16 + dbhdr->count * sizeof(struct employee_t);
 
     struct dbheader_t net = *dbhdr;
@@ -93,7 +95,7 @@ int output_file(int fd, struct dbheader_t *dbhdr, struct employee_t *employees)
     net.filesize = htonl(net.filesize);
 
     lseek(fd, 0, SEEK_SET);
-    if (write(fd, &net, sizeof(net)) != sizeof(net))
+    if (write(fd, &net, 16) != 16)       // Write exactly 16 bytes
         return STATUS_ERROR;
 
     if (employees && dbhdr->count > 0) {
@@ -111,7 +113,8 @@ int output_file(int fd, struct dbheader_t *dbhdr, struct employee_t *employees)
 
 int add_employee(struct dbheader_t *dbhdr, struct employee_t **employees, char *addstring)
 {
-    if (!dbhdr || !employees || !addstring || !*addstring) return STATUS_ERROR;
+    if (!dbhdr || !employees || !addstring || !*addstring)
+        return STATUS_ERROR;
 
     char buf[1024];
     strncpy(buf, addstring, sizeof(buf)-1);
@@ -120,12 +123,14 @@ int add_employee(struct dbheader_t *dbhdr, struct employee_t **employees, char *
     char *name  = strtok(buf, ",");
     char *addr  = strtok(NULL, ",");
     char *hours = strtok(NULL, ",");
-    if (!name || !addr || !hours) return STATUS_ERROR;
+    if (!name || !addr || !hours)
+        return STATUS_ERROR;
 
     uint16_t old_count = dbhdr->count;
 
     struct employee_t *new_mem = realloc(*employees, (old_count + 1) * sizeof(struct employee_t));
-    if (!new_mem) return STATUS_ERROR;
+    if (!new_mem)
+        return STATUS_ERROR;
 
     *employees = new_mem;
     struct employee_t *e = &(*employees)[old_count];
