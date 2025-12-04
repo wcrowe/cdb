@@ -1,27 +1,25 @@
 #ifndef COMMON_H
 #define COMMON_H
 
-#define HEADER_MAGIC   0xdeadbeef
-#define STATUS_SUCCESS 0
-#define STATUS_ERROR   -1
-#define PERM_644       0644
-
-#define NAME_LEN 256
-#define ADDRESS_LEN 256
-
 #include <stdint.h>
 
+// DO NOT define HEADER_MAGIC here — parse.h owns it (0x4c4c4144)
+// DO NOT define NAME_LEN or ADDRESS_LEN here — parse.h owns them too
+
+#define STATUS_SUCCESS  0
+#define STATUS_ERROR   -1
+
 struct dbheader_t {
-    uint32_t magic;
-    uint16_t version;
-    uint16_t count;
-    uint32_t filesize;
+    uint32_t magic;     // 0x4c4c4144 when read from disk (after ntohl)
+    uint16_t version;   // 1
+    uint16_t count;     // number of employees
+    uint32_t filesize;  // total file size in bytes
 };
 
 struct employee_t {
-    char name[256];        // or whatever size you want — but only defined ONCE
-    char address[256];
+    char name[256];        // Must be exactly 256 (test suite checks this)
+    char address[256];     // Must be exactly 256
     uint32_t hours;
 };
 
-#endif
+#endif /* COMMON_H */
