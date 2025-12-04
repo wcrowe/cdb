@@ -6,6 +6,9 @@
 #define STATUS_ERROR   -1
 #define PERM_644       0644
 
+#define NAME_LEN 256
+#define ADDRESS_LEN 256
+
 #include <stdint.h>
 
 struct dbheader_t {
