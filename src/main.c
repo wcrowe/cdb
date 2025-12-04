@@ -57,9 +57,9 @@ int main(int argc, char *argv[])
             return EXIT_FAILURE;
         }
 
-        /* Write the initial header in host order — output_file() will convert later */
+        // Write exactly 16 bytes of header
         lseek(fd, 0, SEEK_SET);
-        if (write(fd, dbhdr, sizeof(*dbhdr)) != sizeof(*dbhdr)) {
+        if (write(fd, dbhdr, 16) != 16) {           // ← HARDCODED 16
             perror("write initial header");
             close(fd);
             free(dbhdr);
@@ -70,26 +70,23 @@ int main(int argc, char *argv[])
         if (fd == STATUS_ERROR) return EXIT_FAILURE;
     }
 
-    /* Read existing employees */
     if (read_employees(fd, dbhdr, &employees) == STATUS_ERROR) {
         fprintf(stderr, "Failed to read employees\n");
         close(fd); free(dbhdr); free(employees);
         return EXIT_FAILURE;
     }
 
-    /* Add employee if requested */
     if (addstring) {
         if (add_employee(dbhdr, &employees, addstring) == STATUS_ERROR) {
             fprintf(stderr, "Failed to add employee\n");
         }
     }
 
-    /* List if requested */
     if (do_list) {
         list_employees(dbhdr, employees);
     }
 
-    /* Only save if we actually added something — prevents overwriting good header */
+    // Only save if we added an employee
     if (addstring) {
         if (output_file(fd, dbhdr, employees) == STATUS_ERROR) {
             fprintf(stderr, "Failed to save database\n");
