@@ -5,10 +5,10 @@
 #define STATUS_ERROR   -1
 
 struct dbheader_t {
-    unsigned int magic;     // 4 bytes
-    unsigned short version; // 2 bytes
-    unsigned short count;   // 2 bytes
-    unsigned int filesize;  // 4 bytes → total 16 bytes, no padding
+    unsigned int magic;
+    unsigned short version;
+    unsigned short count;
+    unsigned int filesize;
 };
 
 struct employee_t {
