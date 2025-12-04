@@ -40,7 +40,7 @@ int open_db_file(char *filename, struct dbheader_t **headerOut) {
         return STATUS_ERROR;
     }
 
-    // Leave file pointer right after header for read_employees()
+    // Leave file pointer right after header
     lseek(fd, sizeof(struct dbheader_t), SEEK_SET);
 
     return fd;

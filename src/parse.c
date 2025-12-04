@@ -10,7 +10,7 @@
 #include "parse.h"
 
 int add_employee(struct dbheader_t *dbhdr, struct employee_t *employees, char *addstring) {
-  // Work on a copy — NEVER modify optarg/argv
+  // Work on a copy optarg/argv
   char buffer[1024];
   if (strlen(addstring) >= sizeof(buffer)) {
     printf("Input string too long\n");
