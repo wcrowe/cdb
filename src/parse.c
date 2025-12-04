@@ -55,23 +55,28 @@ int validate_db_header(int fd, struct dbheader_t **headerOut)
 
 int read_employees(int fd, struct dbheader_t *dbhdr, struct employee_t **employeesOut)
 {
-    if (dbhdr->count == 0) {
-        *employeesOut = NULL;
-        return STATUS_SUCCESS;
+    if (!dbhdr || !employeesOut) return STATUS_ERROR;
+
+    *employeesOut = NULL;
+    if (dbhdr->count == 0) return STATUS_SUCCESS;
+
+    if (lseek(fd, sizeof(struct dbheader_t), SEEK_SET) == -1) {
+        return STATUS_ERROR;
     }
 
-    lseek(fd, sizeof(struct dbheader_t), SEEK_SET);
+    size_t total_bytes = (size_t)dbhdr->count * sizeof(struct employee_t);
     struct employee_t *emps = calloc(dbhdr->count, sizeof(struct employee_t));
     if (!emps) return STATUS_ERROR;
 
-    if (read(fd, emps, dbhdr->count * sizeof(struct employee_t)) !=
-        dbhdr->count * sizeof(struct employee_t)) {
+    ssize_t bytes_read = read(fd, emps, total_bytes);
+    if (bytes_read != (ssize_t)total_bytes) {
         free(emps);
         return STATUS_ERROR;
     }
 
-    for (int i = 0; i < dbhdr->count; i++)
+    for (int i = 0; i < dbhdr->count; i++) {
         emps[i].hours = ntohl(emps[i].hours);
+    }
 
     *employeesOut = emps;
     return STATUS_SUCCESS;
