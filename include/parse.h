@@ -1,26 +1,24 @@
 #ifndef PARSE_H
 #define PARSE_H
 
-#define HEADER_MAGIC 0x4c4c4144
+#include "common.h"
 
-struct dbheader_t {
-	unsigned int magic;
-	unsigned short version;
-	unsigned short count;
-	unsigned int filesize;
-};
+/* Create a fresh in-memory header */
+int create_db_header(struct dbheader_t **out_header);
 
-struct employee_t {
-	char name[256];
-	char address[256];
-	unsigned int hours;
-};
+/* Validate header from open file descriptor */
+int validate_db_header(int fd, struct dbheader_t **out_header);
 
-int create_db_header(int fd, struct dbheader_t **headerOut);
-int validate_db_header(int fd, struct dbheader_t **headerOut);
-int read_employees(int fd, struct dbheader_t *, struct employee_t **employeesOut);
-int output_file(int fd, struct dbheader_t *, struct employee_t *employees);
-void list_employees(struct dbheader_t *dbhdr, struct employee_t *employees);
-int add_employee(struct dbheader_t *dbhdr, struct employee_t *employees, char *addstring);
+/* Read all employee records */
+int read_employees(int fd, struct dbheader_t *hdr, struct employee_t **out_employees);
 
-#endif
+/* Write entire database to disk (handles endian conversion) */
+int output_file(int fd, struct dbheader_t *hdr, struct employee_t *employees);
+
+/* Add one employee from CSV string (instructor's exact signature) */
+int add_employee(struct dbheader_t *hdr, struct employee_t *employees, char *addstring);
+
+/* Print all employees */
+void list_employees(struct dbheader_t *hdr, struct employee_t *employees);
+
+#endif /* PARSE_H */

@@ -1,162 +1,133 @@
 #include <stdio.h>
-#include <unistd.h>
 #include <stdlib.h>
-#include <arpa/inet.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
 #include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <arpa/inet.h>
 
 #include "common.h"
 #include "parse.h"
 
-void list_employees(struct dbheader_t *dbhdr, struct employee_t *employees) {
-	int i = 0;
-	for (; i < dbhdr->count; i++) {
-		printf("Employee %d\n", i);
-		printf("\tName: %s\n", employees[i].name);
-		printf("\tAddress: %s\n", employees[i].address);
-		printf("\tHours: %d\n", employees[i].hours);
-	}
+/* Create a fresh header in memory */
+int create_db_header(struct dbheader_t **out_header)
+{
+    struct dbheader_t *h = calloc(1, sizeof(*h));
+    if (!h) return STATUS_ERROR;
+
+    h->magic    = HEADER_MAGIC;
+    h->version  = 1;
+    h->count    = 0;
+    h->filesize = 16;
+
+    *out_header = h;
+    return STATUS_SUCCESS;
 }
 
-int add_employee(struct dbheader_t *dbhdr, struct employee_t *employees, char *addstring) {
-	printf("%s\n", addstring);
+/* Validate header from file */
+int validate_db_header(int fd, struct dbheader_t **out_header)
+{
+    *out_header = NULL;
+    struct dbheader_t *h = calloc(1, sizeof(*h));
+    if (!h) return STATUS_ERROR;
 
-	char *name = strtok(addstring, ",");
+    if (read(fd, h, 16) != 16) {
+        free(h);
+        return STATUS_ERROR;
+    }
 
-	char *addr = strtok(NULL, ",");
+    h->magic    = ntohl(h->magic);
+    h->version  = ntohs(h->version);
+    h->count    = ntohs(h->count);
+    h->filesize = ntohl(h->filesize);
 
-	char *hours = strtok(NULL, ",");
+    if (h->magic != HEADER_MAGIC || h->version != 1) {
+        free(h);
+        return STATUS_ERROR;
+    }
 
-	printf("%s %s %s\n", name, addr, hours);
+    struct stat st;
+    if (fstat(fd, &st) == 0 && h->filesize != (unsigned int)st.st_size) {
+        free(h);
+        return STATUS_ERROR;
+    }
 
-	
-	strncpy(employees[dbhdr->count-1].name, name, sizeof(employees[dbhdr->count-1].name));
-	strncpy(employees[dbhdr->count-1].address, addr, sizeof(employees[dbhdr->count-1].address));
-
-	employees[dbhdr->count-1].hours = atoi(hours);
-	
-
-	return STATUS_SUCCESS;
+    *out_header = h;
+    return STATUS_SUCCESS;
 }
 
-int read_employees(int fd, struct dbheader_t *dbhdr, struct employee_t **employeesOut) {
-	if (fd < 0) {
-		printf("Got a bad FD from the user\n");
-		return STATUS_ERROR;
-	}
+/* Read all employees */
+int read_employees(int fd, struct dbheader_t *hdr, struct employee_t **out_employees)
+{
+    if (hdr->count == 0) {
+        *out_employees = NULL;
+        return STATUS_SUCCESS;
+    }
 
+    lseek(fd, 16, SEEK_SET);
+    struct employee_t *emps = calloc(hdr->count, sizeof(*emps));
+    if (!emps) return STATUS_ERROR;
 
-	int count = dbhdr->count;
+    if (read(fd, emps, hdr->count * sizeof(*emps)) != (ssize_t)(hdr->count * sizeof(*emps))) {
+        free(emps);
+        return STATUS_ERROR;
+    }
 
-	struct employee_t *employees = calloc(count, sizeof(struct employee_t));
-	if (employees == (void*)-1) {
-		printf("Malloc failed\n");
-		return STATUS_ERROR;
-	}
+    for (int i = 0; i < hdr->count; i++)
+        emps[i].hours = ntohl(emps[i].hours);
 
-	read(fd, employees, count*sizeof(struct employee_t));
-
-	int i = 0;
-	for (; i < count; i++) {
-		employees[i].hours = ntohl(employees[i].hours);
-	}
-
-	*employeesOut = employees;
-	return STATUS_SUCCESS;
-
+    *out_employees = emps;
+    return STATUS_SUCCESS;
 }
 
-int output_file(int fd, struct dbheader_t *dbhdr, struct employee_t *employees) {
-	if (fd < 0) {
-		printf("Got a bad FD from the user\n");
-		return STATUS_ERROR;
-	}
+/* Write entire database */
+int output_file(int fd, struct dbheader_t *hdr, struct employee_t *employees)
+{
+    hdr->filesize = 16 + hdr->count * sizeof(struct employee_t);
 
-	int realcount = dbhdr->count;
+    struct dbheader_t net = *hdr;
+    net.magic    = htonl(net.magic);
+    net.version  = htons(net.version);
+    net.count    = htons(net.count);
+    net.filesize = htonl(net.filesize);
 
-	dbhdr->magic = htonl(dbhdr->magic);
-	dbhdr->filesize = htonl(sizeof(struct dbheader_t) + (sizeof(struct employee_t) * realcount));
-	dbhdr->count = htons(dbhdr->count);
-	dbhdr->version = htons(dbhdr->version);
+    lseek(fd, 0, SEEK_SET);
+    write(fd, &net, 16);
 
-	lseek(fd, 0, SEEK_SET);
+    for (int i = 0; i < hdr->count; i++) {
+        struct employee_t e = employees[i];
+        e.hours = htonl(e.hours);
+        write(fd, &e, sizeof(e));
+    }
 
-	write(fd, dbhdr, sizeof(struct dbheader_t));
-
-	int i = 0;
-	for (; i < realcount; i++) {
-		employees[i].hours = htonl(employees[i].hours);
-		write(fd, &employees[i], sizeof(struct employee_t));
-	}
-
-	return STATUS_SUCCESS;
-
-}	
-
-int validate_db_header(int fd, struct dbheader_t **headerOut) {
-	if (fd < 0) {
-		printf("Got a bad FD from the user\n");
-		return STATUS_ERROR;
-	}
-
-	struct dbheader_t *header = calloc(1, sizeof(struct dbheader_t));
-	if (header == (void*)-1) {
-		printf("Malloc failed create a db header\n");
-		return STATUS_ERROR;
-	}
-
-	if (read(fd, header, sizeof(struct dbheader_t)) != sizeof(struct dbheader_t)) {
-		perror("read");
-		free(header);
-		return STATUS_ERROR;
-	}
-
-	header->version = ntohs(header->version);
-	header->count = ntohs(header->count);
-	header->magic = ntohl(header->magic);
-	header->filesize = ntohl(header->filesize);
-
-	if (header->magic != HEADER_MAGIC) {
-		printf("Impromper header magic\n");
-		free(header);
-		return -1;
-	}
-
-
-	if (header->version != 1) {
-		printf("Impromper header version\n");
-		free(header);
-		return -1;
-	}
-
-	struct stat dbstat = {0};
-	fstat(fd, &dbstat);
-	if (header->filesize != dbstat.st_size) {
-		printf("Corrupted database\n");
-		free(header);
-		return -1;
-	}
-
-	*headerOut = header;
+    fsync(fd);
+    return STATUS_SUCCESS;
 }
 
-int create_db_header(int fd, struct dbheader_t **headerOut) {
-	struct dbheader_t *header = calloc(1, sizeof(struct dbheader_t));
-	if (header == (void*)-1) {
-		printf("Malloc failed to create db header\n");
-		return STATUS_ERROR;
-	}
+/* Add employee — matches instructor's exact signature */
+int add_employee(struct dbheader_t *hdr, struct employee_t *employees, char *addstring)
+{
+    char *name  = strtok(addstring, ",");
+    char *addr  = strtok(NULL, ",");
+    char *hours = strtok(NULL, ",");
 
-	header->version = 0x1;
-	header->count = 0;
-	header->magic = HEADER_MAGIC;
-	header->filesize = sizeof(struct dbheader_t);
+    if (!name || !addr || !hours) return STATUS_ERROR;
 
-	*headerOut = header;
+    strncpy(employees[hdr->count].name,    name,  255); employees[hdr->count].name[255]    = '\0';
+    strncpy(employees[hdr->count].address, addr,  255); employees[hdr->count].address[255] = '\0';
+    employees[hdr->count].hours = atoi(hours);
 
-	return STATUS_SUCCESS;
+    hdr->count++;   /* Only increment here */
+    return STATUS_SUCCESS;
 }
 
-
+/* List employees */
+void list_employees(struct dbheader_t *hdr, struct employee_t *employees)
+{
+    for (int i = 0; i < hdr->count; i++) {
+        printf("Employee %d\n", i);
+        printf("\tName: %s\n", employees[i].name);
+        printf("\tAddress: %s\n", employees[i].address);
+        printf("\tHours: %d\n", employees[i].hours);
+    }
+}

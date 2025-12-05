@@ -1,108 +1,85 @@
-#include <stdio.h>
-#include <stdbool.h>
 #include <getopt.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <stdbool.h>
+#include <arpa/inet.h>
 
 #include "common.h"
 #include "file.h"
 #include "parse.h"
 
-void print_usage(char *argv[]) {
-	printf("Usage: %s -n -f <database file>\n", argv[0]);
-	printf("\t -n  - create new database file\n");
-	printf("\t -f  - (required) path to database file\n");
-	return;
-}
+int main(int argc, char *argv[])
+{
+    const char *filename = NULL;
+    bool create_new = false;
+    bool do_list = false;
+    char *addstring = NULL;
 
-int main(int argc, char *argv[]) { 
-	char *filepath = NULL;
-	char *portarg = NULL;
-	unsigned short port = 0;
-	bool newfile = false;
-	bool list = false;
-  char *addstring = NULL;
-	int c;
+    int opt;
+    while ((opt = getopt(argc, argv, "f:na:l")) != -1) {
+        switch (opt) {
+            case 'f': filename   = optarg; break;
+            case 'n': create_new = true;   break;
+            case 'a': addstring  = optarg; break;
+            case 'l': do_list    = true;   break;
+            default: return 1;
+        }
+    }
 
-	int dbfd = -1;
-	struct dbheader_t *dbhdr = NULL;
-	struct employee_t *employees = NULL;
+    if (!filename) return 1;
 
-	while ((c = getopt(argc, argv, "nf:a:l")) != -1) {
-		switch (c) {
-			case 'n':
-				newfile = true;
-				break;
-			case 'f':
-				filepath = optarg;
-				break;
-			case 'p':
-				portarg = optarg;
-				break;
-      case 'a':
-        addstring = optarg;
-        break;
-			case 'l':
-				list = true;
-				break;
-			case '?':
-				printf("Unknown option -%c\n", c);
-				break;
-			default:
-				return -1;
+    int fd = -1;
+    struct dbheader_t *hdr = NULL;
+    struct employee_t *emps = NULL;
 
-		}
-	}
+    /* Create or open database */
+    if (create_new) {
+        fd = create_db_file(filename);
+        if (fd == STATUS_ERROR) return 1;
 
-	if (filepath == NULL) {
-		printf("Filepath is a required argument\n");
-		print_usage(argv);
+        create_db_header(&hdr);
 
-		return 0;
-	}
+        struct dbheader_t net = *hdr;
+        net.magic    = htonl(net.magic);
+        net.version  = htons(net.version);
+        net.count    = htons(net.count);
+        net.filesize = htonl(net.filesize);
 
+        lseek(fd, 0, SEEK_SET);
+        write(fd, &net, 16);
+    } else {
+        fd = open_db_file(filename);
+        if (fd == STATUS_ERROR) return 1;
 
-	if (newfile) {
-		dbfd = create_db_file(filepath);
-		if (dbfd == STATUS_ERROR) {
-			printf("Unable to create database file\n");
-			return -1;
-		}
+        validate_db_header(fd, &hdr);
+    }
 
-		if (create_db_header(dbfd, &dbhdr) == STATUS_ERROR) {
-			printf("Failed to create database header\n"); 
-			return -1;
-		}
-	} else {
-		dbfd = open_db_file(filepath);
-		if (dbfd == STATUS_ERROR) {
-			printf("Unable to open database file\n");
-			return -1;
-		}
+    read_employees(fd, hdr, &emps);
 
-		if (validate_db_header(dbfd, &dbhdr) == STATUS_ERROR) {
-			printf("Failed to validate database header\n");
-			return -1;
-		}
-	}
+    /* Add employee — DO NOT increment count here */
+    if (addstring) {
+        /* Grow array first */
+        struct employee_t *tmp = realloc(emps, (hdr->count + 1) * sizeof(*emps));
+        if (!tmp) {
+            perror("realloc");
+            return 1;
+        }
+        emps = tmp;
 
-	if (read_employees(dbfd, dbhdr, &employees) != STATUS_SUCCESS) {
-		printf("Failed to read employees");
-		return 0;
-	}
+        /* Let add_employee use hdr->count as index and increment it */
+        add_employee(hdr, emps, addstring);
+    }
 
-	if (addstring) {
-		dbhdr->count++;
-		employees = realloc(employees, dbhdr->count*(sizeof(struct employee_t)));
-		add_employee(dbhdr, employees, addstring);
-	}
+    if (do_list)
+        list_employees(hdr, emps);
 
-	if (list) {
-		list_employees(dbhdr, employees);
-	}
+    if (addstring)
+        output_file(fd, hdr, emps);
 
+    close(fd);
+    free(hdr);
+    if (emps) free(emps);  /* Safe free */
 
-	output_file(dbfd, dbhdr, employees);
-
-
-	return 0;
+    return 0;
 }
