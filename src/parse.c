@@ -9,7 +9,6 @@
 #include "common.h"
 #include "parse.h"
 
-/* Create a fresh header in memory */
 int create_db_header(struct dbheader_t **out_header)
 {
     struct dbheader_t *h = calloc(1, sizeof(*h));
@@ -18,13 +17,12 @@ int create_db_header(struct dbheader_t **out_header)
     h->magic    = HEADER_MAGIC;
     h->version  = 1;
     h->count    = 0;
-    h->filesize = 16;
+    h->filesize = 16;  /* Fixed header size */
 
     *out_header = h;
     return STATUS_SUCCESS;
 }
 
-/* Validate header from file */
 int validate_db_header(int fd, struct dbheader_t **out_header)
 {
     *out_header = NULL;
@@ -56,7 +54,6 @@ int validate_db_header(int fd, struct dbheader_t **out_header)
     return STATUS_SUCCESS;
 }
 
-/* Read all employees */
 int read_employees(int fd, struct dbheader_t *hdr, struct employee_t **out_employees)
 {
     if (hdr->count == 0) {
@@ -68,10 +65,7 @@ int read_employees(int fd, struct dbheader_t *hdr, struct employee_t **out_emplo
     struct employee_t *emps = calloc(hdr->count, sizeof(*emps));
     if (!emps) return STATUS_ERROR;
 
-    if (read(fd, emps, hdr->count * sizeof(*emps)) != (ssize_t)(hdr->count * sizeof(*emps))) {
-        free(emps);
-        return STATUS_ERROR;
-    }
+    read(fd, emps, hdr->count * sizeof(*emps));
 
     for (int i = 0; i < hdr->count; i++)
         emps[i].hours = ntohl(emps[i].hours);
@@ -80,7 +74,6 @@ int read_employees(int fd, struct dbheader_t *hdr, struct employee_t **out_emplo
     return STATUS_SUCCESS;
 }
 
-/* Write entire database */
 int output_file(int fd, struct dbheader_t *hdr, struct employee_t *employees)
 {
     hdr->filesize = 16 + hdr->count * sizeof(struct employee_t);
@@ -104,7 +97,6 @@ int output_file(int fd, struct dbheader_t *hdr, struct employee_t *employees)
     return STATUS_SUCCESS;
 }
 
-/* Add employee — matches instructor's exact signature */
 int add_employee(struct dbheader_t *hdr, struct employee_t *employees, char *addstring)
 {
     char *name  = strtok(addstring, ",");
@@ -116,12 +108,11 @@ int add_employee(struct dbheader_t *hdr, struct employee_t *employees, char *add
     strncpy(employees[hdr->count].name,    name,  255); employees[hdr->count].name[255]    = '\0';
     strncpy(employees[hdr->count].address, addr,  255); employees[hdr->count].address[255] = '\0';
     employees[hdr->count].hours = atoi(hours);
+    hdr->count++;
 
-    hdr->count++;   /* Only increment here */
     return STATUS_SUCCESS;
 }
 
-/* List employees */
 void list_employees(struct dbheader_t *hdr, struct employee_t *employees)
 {
     for (int i = 0; i < hdr->count; i++) {

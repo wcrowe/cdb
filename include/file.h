@@ -3,17 +3,10 @@
 
 #include "common.h"
 
-/*
- * create_db_file — Create a new empty database file
- * Returns file descriptor on success, STATUS_ERROR on failure
- * Fails if file already exists (safe against accidental overwrite)
- */
+/* Create a new database file — fails if exists (safe) */
 int create_db_file(const char *path);
 
-/*
- * open_db_file — Open existing database for reading and writing
- * Returns file descriptor on success, STATUS_ERROR on failure
- */
+/* Open an existing database file for read/write */
 int open_db_file(const char *path);
 
 #endif /* FILE_H */
