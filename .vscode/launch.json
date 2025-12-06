@@ -2,43 +2,17 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug dbview (CMake)",
+            "name": "Debug dbview",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/dbview",   // ← CMake output
-            "args": [
-                "-f", "mynewdb.db",
-                "-n"
-            ],
+            "program": "${workspaceFolder}/build/dbview",
+            "args": ["-f", "mynewdb.db", "-n"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
             "externalConsole": false,
             "MIMode": "gdb",
-            "miDebuggerPath": "/usr/bin/gdb",
-            "setupCommands": [
-                {
-                    "description": "Enable pretty-printing for gdb",
-                    "text": "-enable-pretty-printing",
-                    "ignoreFailures": true
-                }
-            ]
-        },
-        {
-            "name": "Debug: Add Employee + List",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/build/dbview",
-            "args": [
-                "-f", "mynewdb.db",
-                "-a", "John Doe,123 Main St,40",
-                "-l"
-            ],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}",
-            "environment": [],
-            "externalConsole": false,
-            "MIMode": "gdb"
+            "preLaunchTask": "CMake: build"
         }
     ]
 }
