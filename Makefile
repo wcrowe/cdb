@@ -1,44 +1,54 @@
+# =============================================================================
+# Final, perfect Makefile for dbview — VS Code debugger ready!
+# =============================================================================
+
+# Output binary
 TARGET   = bin/dbview
+
+# Source and object files
 SRC      = $(wildcard src/*.c)
 OBJ      = $(SRC:src/%.c=obj/%.o)
-CFLAGS   = -Iinclude -Wall -Wextra
 
-# This makes "make" do the full test sequence every time
-all: test
+# Compiler flags — -g is REQUIRED for debugging!
+CFLAGS   = -g -Iinclude -Wall -Wextra -Werror
+LDFLAGS  = 
 
-# Full automated workflow — this is what runs when you just type "make"
-test: clean $(TARGET)
-	@echo "========================================"
+# Default target — build the program
+all: $(TARGET)
+
+# Link final executable (keep debug symbols)
+$(TARGET): $(OBJ)
+	@echo "Linking $@"
+	gcc -g -o $@ $^ $(LDFLAGS)
+
+# Compile .c → .o with debug info
+obj/%.o: src/%.c | obj bin
+	@echo "Compiling $<"
+	gcc $(CFLAGS) -c $< -o $@
+
+# Create directories if they don't exist
+obj bin:
+	@mkdir -p $@
+
+# Clean everything — removes obj/, bin/, and test files
+clean:
+	@echo "Cleaning everything..."
+	rm -rf obj bin *.db 2>/dev/null || true
+
+# Run your full test sequence
+test: clean all
+	@echo "========================================="
 	@echo "Creating new database..."
 	./$(TARGET) -f mynewdb.db -n
 	@echo "Adding Timmy..."
 	./$(TARGET) -f mynewdb.db -a "Timmy H.,123 Sheshire Ln.,120"
 	@echo "Adding Alice..."
 	./$(TARGET) -f mynewdb.db -a "Alice Wonder,456 Fairy Tale Rd,160"
-	@echo "Adding Bob..."
-	./$(TARGET) -f mynewdb.db -a "Bob Builder,789 Construction Site,200"
-	@echo "========================================"
-	@echo "Final database content:"
+	@echo "========================================="
+	@echo "Final list:"
 	./$(TARGET) -f mynewdb.db -l
-	@echo "========================================"
-	@echo "All done! Database ready with 3 employees."
+	@echo "========================================="
+	@echo "Test complete!"
 
-$(TARGET): $(OBJ)
-	gcc -o $@ $^
-
-obj/%.o: src/%.c | obj bin
-	gcc $(CFLAGS) -c $< -o $@
-
-obj bin:
-	mkdir -p $@
-
-
-clean:
-	@echo "Cleaning everything..."
-	rm -rf obj bin *.db 2>/dev/null || true
-	@echo "Clean complete. Directories removed."
-
-# If you ever want just a normal build (not the full test), use: make build
-build: $(TARGET)
-
-.PHONY: all test build clean
+# Phony targets (not real files)
+.PHONY: all clean test
