@@ -1,21 +1,37 @@
-/* main.c — Final, 100% passing version with maximum inline comments */
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdbool.h>
-#include <arpa/inet.h>     // Needed for htonl/htons
+#include <arpa/inet.h>
 
 #include "common.h"
 #include "file.h"
 #include "parse.h"
 
+static void print_usage(const char *progname)
+{
+    printf("Usage: %s -f <database_file> [options]\n", progname);
+    printf("\n");
+    printf("Required:\n");
+    printf("  -f <file>     Database file path\n");
+    printf("\n");
+    printf("Options:\n");
+    printf("  -n            Create new database (deletes existing)\n");
+    printf("  -a \"name,address,hours\"   Add employee\n");
+    printf("  -l            List all employees\n");
+    printf("\n");
+    printf("Examples:\n");
+    printf("  %s -f employees.db -n\n", progname);
+    printf("  %s -f employees.db -a \"John Doe,123 Main St,40\" -l\n", progname);
+}
+
 int main(int argc, char *argv[])
 {
-    const char *filename = NULL;   // Database file path from -f
-    bool create_new = false;       // True if -n flag given
-    bool do_list = false;          // True if -l flag given
-    char *addstring = NULL;        // CSV string from -a
+    const char *filename = NULL;
+    bool create_new = false;
+    bool do_list = false;
+    char *addstring = NULL;
 
     int opt;
     while ((opt = getopt(argc, argv, "f:na:l")) != -1) {
@@ -24,24 +40,29 @@ int main(int argc, char *argv[])
             case 'n': create_new = true;   break;
             case 'a': addstring  = optarg; break;
             case 'l': do_list    = true;   break;
-            default: return 1;
+            default:
+                print_usage(argv[0]);
+                return 1;
         }
     }
 
-    if (!filename) return 1;
+    // REQUIRED: -f must be provided
+    if (!filename) {
+        fprintf(stderr, "Error: -f <database file> is required\n\n");
+        print_usage(argv[0]);
+        return 1;
+    }
 
     int fd = -1;
     struct dbheader_t *hdr = NULL;
     struct employee_t *emps = NULL;
 
-    /* Create new database */
     if (create_new) {
         fd = create_db_file(filename);
         if (fd == STATUS_ERROR) return 1;
 
         create_db_header(&hdr);
 
-        /* Write header in network byte order — REQUIRED for validation */
         struct dbheader_t net = *hdr;
         net.magic    = htonl(net.magic);
         net.version  = htons(net.version);
@@ -49,20 +70,16 @@ int main(int argc, char *argv[])
         net.filesize = htonl(net.filesize);
 
         lseek(fd, 0, SEEK_SET);
-        write(fd, &net, 16);  // Exactly 16 bytes
-    }
-    /* Open existing database */
-    else {
+        write(fd, &net, 16);
+    } else {
         fd = open_db_file(filename);
         if (fd == STATUS_ERROR) return 1;
 
         validate_db_header(fd, &hdr);
     }
 
-    /* Read employees from file */
     read_employees(fd, hdr, &emps);
 
-    /* Add employee — grow array first, then let add_employee increment count */
     if (addstring) {
         struct employee_t *tmp = realloc(emps, (hdr->count + 1) * sizeof(*emps));
         if (!tmp) {
@@ -70,8 +87,7 @@ int main(int argc, char *argv[])
             return 1;
         }
         emps = tmp;
-
-        add_employee(hdr, emps, addstring);  // Uses hdr->count as index and increments it
+        add_employee(hdr, emps, addstring);
     }
 
     if (do_list)
